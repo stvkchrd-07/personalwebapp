@@ -9,6 +9,7 @@
 <title>StvkChrd</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
@@ -34,15 +35,35 @@
   --safe-bottom:env(safe-area-inset-bottom,0px);
 }
 html,body{height:100%;background:var(--bg);overflow:hidden;}
-body{font-family:var(--body);color:var(--text);}
+body{font-family:var(--body);color:var(--text); transition: background 0.3s ease;}
+
+/* ── 3D CANVAS & VIGNETTE ── */
+#bg-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+.vignette {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 20%, var(--bg) 110%);
+  z-index: 1;
+  pointer-events: none;
+  transition: background 0.3s ease;
+}
 
 /* ── APP SHELL ── */
 .shell{
   position:fixed;inset:0;
   max-width:430px;margin:0 auto;
   display:flex;flex-direction:column;
-  background:var(--bg);
+  background:transparent; /* Made transparent for 3D bg */
   overflow:hidden;
+  z-index: 5;
 }
 .content{
   flex:1;overflow-y:auto;overflow-x:hidden;
@@ -51,24 +72,6 @@ body{font-family:var(--body);color:var(--text);}
   scrollbar-width:none;
 }
 .content::-webkit-scrollbar{display:none;}
-
-/* ── AMBIENT BG GLOW ── */
-.ambient{
-  position:fixed;pointer-events:none;z-index:0;
-  width:100%;max-width:430px;
-  top:0;left:50%;transform:translateX(-50%);
-  height:100%;overflow:hidden;
-}
-.glow1{
-  position:absolute;width:300px;height:300px;border-radius:50%;
-  background:radial-gradient(circle,rgba(223,160,93,0.12) 0%,transparent 70%);
-  top:-80px;right:-80px;
-}
-.glow2{
-  position:absolute;width:250px;height:250px;border-radius:50%;
-  background:radial-gradient(circle,rgba(200,240,74,0.06) 0%,transparent 70%);
-  bottom:200px;left:-60px;
-}
 
 /* ── HEADER ── */
 .hdr{
@@ -92,11 +95,6 @@ body{font-family:var(--body);color:var(--text);}
 }
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--lime);animation:blink 2s ease-in-out infinite;}
 @keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--lime);}50%{opacity:0.3;box-shadow:none;}}
-.date-pill{
-  font-family:var(--data);font-size:10px;letter-spacing:1px;color:var(--muted);
-  background:var(--glass);border:1px solid var(--border);
-  padding:5px 11px;border-radius:20px;
-}
 
 /* ── PROGRESS BAR ── */
 .prog-wrap{padding:0 20px 12px;position:relative;z-index:5;}
@@ -468,7 +466,7 @@ body{font-family:var(--body);color:var(--text);}
 /* ── BOTTOM NAV ── */
 .bottom-nav{
   flex-shrink:0;
-  background:rgba(8,8,8,0.85);
+  background:rgba(8,8,8,0.7);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-top:1px solid var(--border);
   display:flex;
@@ -490,10 +488,11 @@ body{font-family:var(--body);color:var(--text);}
 </style>
 </head>
 <body>
-<div class="ambient"><div class="glow1"></div><div class="glow2"></div></div>
+
+<canvas id="bg-canvas"></canvas>
+<div class="vignette"></div>
 
 <div class="shell">
-  <!-- HEADER -->
   <div class="hdr">
     <div class="wordmark">STVKCHRD</div>
     <div class="hdr-right">
@@ -505,10 +504,8 @@ body{font-family:var(--body);color:var(--text);}
     <div class="prog-label"><span id="prog-lbl-l">DAILY PROGRESS</span><span id="prog-lbl-r">0%</span></div>
   </div>
 
-  <!-- CONTENT -->
   <div class="content">
 
-    <!-- HOME -->
     <div class="view active" id="view-home">
       <div class="hero-section">
         <div class="hero-greeting">DAYS SMOKE-FREE</div>
@@ -546,7 +543,6 @@ body{font-family:var(--body);color:var(--text);}
       <div class="home-tasks" id="h-tasklist"></div>
     </div>
 
-    <!-- TASKS -->
     <div class="view" id="view-tasks">
       <div class="tasks-hdr">
         <div class="tasks-big-title">TASK<br>BOARD</div>
@@ -567,7 +563,6 @@ body{font-family:var(--body);color:var(--text);}
       </div>
     </div>
 
-    <!-- GYM -->
     <div class="view" id="view-gym">
       <div class="gym-hdr">
         <div class="gym-big-title">GYM<br>LOG</div>
@@ -589,7 +584,6 @@ body{font-family:var(--body);color:var(--text);}
       <div class="gym-sessions" id="gym-list"></div>
     </div>
 
-    <!-- URGES -->
     <div class="view" id="view-urges">
       <div class="urge-hero" style="margin-top:4px">
         <div class="urge-hero-label">Cigarette Tracker</div>
@@ -611,7 +605,6 @@ body{font-family:var(--body);color:var(--text);}
       <div class="urge-entries" id="u-list"></div>
     </div>
 
-    <!-- SETTINGS -->
     <div class="view" id="view-settings">
       <div class="settings-hdr">
         <div class="settings-title">CTRL<br>PANEL</div>
@@ -658,10 +651,7 @@ body{font-family:var(--body);color:var(--text);}
       </div>
     </div>
 
-  </div><!-- /content -->
-
-  <!-- BOTTOM NAV -->
-  <div class="bottom-nav">
+  </div><div class="bottom-nav">
     <div class="btab active" id="bt-home" onclick="gotoTab('home')">
       <svg class="btab-icon" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
       <span class="btab-lbl">Home</span><div class="btab-dot"></div>
@@ -686,6 +676,7 @@ body{font-family:var(--body);color:var(--text);}
 </div>
 
 <script>
+// --- UI LOGIC ---
 const LS={g:k=>{try{return JSON.parse(localStorage.getItem('sc_v4_'+k))}catch{return null}},s:(k,v)=>localStorage.setItem('sc_v4_'+k,JSON.stringify(v))};
 const TODAY=new Date().toDateString();
 let T=LS.g('T')||{daily:[],arch:[],date:''};
@@ -840,6 +831,7 @@ function resetCig(){if(!confirm('Reset quit streak?'))return;C.qt=null;save();re
 function clearDaily(){if(!confirm('Clear daily tasks?'))return;T.daily=[];T.date=TODAY;save();renderTasks();renderHome();}
 function clearUrges(){if(!confirm('Clear urge log?'))return;U=[];save();renderSettings();renderHome();}
 function clearGym(){if(!confirm('Clear all gym data?'))return;G=[];save();renderGym();renderHome();}
+
 function applyLight(){
   document.documentElement.style.setProperty('--bg','#F0EDE6');
   document.documentElement.style.setProperty('--bg2','#E8E4DC');
@@ -854,7 +846,9 @@ function applyLight(){
   document.documentElement.style.setProperty('--dim','rgba(14,14,16,0.25)');
   document.documentElement.style.setProperty('--silver','rgba(0,0,0,0.6)');
   document.body.style.background='#F0EDE6';
+  if(window.update3DTheme) update3DTheme(0xF0EDE6); // Sync 3D Canvas
 }
+
 function applyDark(){
   document.documentElement.style.setProperty('--bg','#080808');
   document.documentElement.style.setProperty('--bg2','#0e0e10');
@@ -869,13 +863,16 @@ function applyDark(){
   document.documentElement.style.setProperty('--dim','rgba(242,240,235,0.2)');
   document.documentElement.style.setProperty('--silver','rgba(255,255,255,0.55)');
   document.body.style.background='#080808';
+  if(window.update3DTheme) update3DTheme(0x080808); // Sync 3D Canvas
 }
+
 function toggleTheme(){
   const tog=document.getElementById('theme-tog');
   const isLight=tog.classList.toggle('on');
   ST.theme=isLight?'light':'dark';save();
   isLight?applyLight():applyDark();
 }
+
 function renderSettings(){
   document.getElementById('s-quit-disp').textContent=C.qt?new Date(C.qt).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}):'Not set';
   document.getElementById('s-cpd-disp').textContent=ST.cpd?'₹'+ST.cpd+' per day':'Not set';
@@ -897,6 +894,110 @@ setInterval(()=>{
   if(uv&&uv.classList.contains('active'))renderUrges();
   renderHome();
 },60000);
+
+
+// --- THREE.JS 3D PARTICLE WAVE SETUP ---
+const canvas3d = document.getElementById('bg-canvas');
+const scene = new THREE.Scene();
+const defaultFogColor = ST.theme === 'light' ? 0xF0EDE6 : 0x080808;
+scene.fog = new THREE.FogExp2(defaultFogColor, 0.0035);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 40, 100);
+
+const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, alpha: true, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // optimize performance
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+// Create Particle Plane
+const planeGeom = new THREE.PlaneGeometry(350, 350, 75, 75);
+const material = new THREE.PointsMaterial({
+    size: 1.8,
+    transparent: true,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending,
+    vertexColors: true // allow color gradients
+});
+
+// Gradient mix between Lime and Amber
+const colorLime = new THREE.Color(0xC8F04A);
+const colorAmber = new THREE.Color(0xDFA05D);
+const colors = [];
+const positions = planeGeom.attributes.position;
+
+for (let i = 0; i < positions.count; i++) {
+    // Generate an organic mix of the two accent colors
+    const mixed = colorLime.clone().lerp(colorAmber, Math.random() * 0.8 + 0.1);
+    colors.push(mixed.r, mixed.g, mixed.b);
+}
+planeGeom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+const particles = new THREE.Points(planeGeom, material);
+particles.rotation.x = -Math.PI / 2.5;
+scene.add(particles);
+
+// Interactivity / Parallax variables
+let mouseX = 0;
+let mouseY = 0;
+let targetX = 0;
+let targetY = 0;
+const halfX = window.innerWidth / 2;
+const halfY = window.innerHeight / 2;
+
+// Desktop Mouse Parallax
+document.addEventListener('mousemove', (e) => {
+    mouseX = (e.clientX - halfX) * 0.04;
+    mouseY = (e.clientY - halfY) * 0.04;
+});
+
+// Mobile Gyroscope Parallax
+window.addEventListener('deviceorientation', (e) => {
+    if (e.gamma && e.beta) {
+        mouseX = e.gamma * 0.8; 
+        mouseY = e.beta * 0.8;
+    }
+});
+
+// Expose a global method to update 3D fog blending when theme switches
+window.update3DTheme = function(hexColor) {
+    scene.fog.color.setHex(hexColor);
+    // Darken particles slightly in light mode for contrast
+    material.blending = hexColor === 0xF0EDE6 ? THREE.NormalBlending : THREE.AdditiveBlending;
+};
+
+const clock = new THREE.Clock();
+
+function animate3D() {
+    requestAnimationFrame(animate3D);
+    const time = clock.getElapsedTime() * 0.5;
+
+    // Smooth Parallax Easing
+    targetX = mouseX * 0.8;
+    targetY = mouseY * 0.8;
+    camera.position.x += (targetX - camera.position.x) * 0.05;
+    camera.position.y += (40 + targetY - camera.position.y) * 0.05;
+    camera.lookAt(scene.position);
+
+    // Dynamic Wave Math
+    const posArr = particles.geometry.attributes.position.array;
+    for (let i = 0; i < posArr.length; i += 3) {
+        const x = posArr[i];
+        const y = posArr[i + 1];
+        // Calculate organic noise via layered sine/cosine
+        posArr[i + 2] = Math.sin(x * 0.05 + time) * 6 + Math.cos(y * 0.05 + time * 0.8) * 6;
+    }
+    particles.geometry.attributes.position.needsUpdate = true;
+
+    renderer.render(scene, camera);
+}
+animate3D();
+
+// Handle resizing
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
