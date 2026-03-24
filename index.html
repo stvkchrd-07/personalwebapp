@@ -906,7 +906,7 @@ const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerH
 camera.position.set(0, 40, 100);
 
 const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, alpha: true, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // optimize performance
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 // Create Particle Plane
@@ -916,17 +916,15 @@ const material = new THREE.PointsMaterial({
     transparent: true,
     opacity: 0.8,
     blending: THREE.AdditiveBlending,
-    vertexColors: true // allow color gradients
+    vertexColors: true
 });
 
-// Gradient mix between Lime and Amber
 const colorLime = new THREE.Color(0xC8F04A);
 const colorAmber = new THREE.Color(0xDFA05D);
 const colors = [];
 const positions = planeGeom.attributes.position;
 
 for (let i = 0; i < positions.count; i++) {
-    // Generate an organic mix of the two accent colors
     const mixed = colorLime.clone().lerp(colorAmber, Math.random() * 0.8 + 0.1);
     colors.push(mixed.r, mixed.g, mixed.b);
 }
@@ -944,24 +942,55 @@ let targetY = 0;
 const halfX = window.innerWidth / 2;
 const halfY = window.innerHeight / 2;
 
-// Desktop Mouse Parallax
+// Desktop Mouse Parallax (Fallback)
 document.addEventListener('mousemove', (e) => {
     mouseX = (e.clientX - halfX) * 0.04;
     mouseY = (e.clientY - halfY) * 0.04;
 });
 
-// Mobile Gyroscope Parallax
-window.addEventListener('deviceorientation', (e) => {
-    if (e.gamma && e.beta) {
-        mouseX = e.gamma * 0.8; 
-        mouseY = e.beta * 0.8;
-    }
-});
+// --- iOS GYROSCOPE PERMISSION & TRACKING ---
+let gyroInitialized = false;
 
-// Expose a global method to update 3D fog blending when theme switches
+function initGyro() {
+    if (gyroInitialized) return;
+    
+    // Check if iOS 13+ device orientation permission is required
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+            .then(permissionState => {
+                if (permissionState === 'granted') {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                }
+            })
+            .catch(console.error);
+    } else {
+        // Non-iOS 13+ devices
+        window.addEventListener('deviceorientation', handleOrientation);
+    }
+    gyroInitialized = true;
+}
+
+// Request permission on the user's first tap anywhere on the screen
+document.body.addEventListener('click', initGyro, { once: true });
+document.body.addEventListener('touchstart', initGyro, { once: true });
+
+function handleOrientation(e) {
+    if (e.gamma !== null && e.beta !== null) {
+        // Gamma: Left/Right tilt (-90 to 90)
+        // Beta: Front/Back tilt (-180 to 180)
+        
+        // Constrain extreme values so the camera doesn't flip
+        let gamma = Math.max(-45, Math.min(45, e.gamma));
+        let beta = Math.max(-45, Math.min(45, e.beta));
+
+        // Multiply for sensitivity. Offset beta by 30 degrees assuming the user holds the phone slightly tilted up
+        mouseX = gamma * 1.5; 
+        mouseY = (beta - 30) * 1.5; 
+    }
+}
+
 window.update3DTheme = function(hexColor) {
     scene.fog.color.setHex(hexColor);
-    // Darken particles slightly in light mode for contrast
     material.blending = hexColor === 0xF0EDE6 ? THREE.NormalBlending : THREE.AdditiveBlending;
 };
 
@@ -972,19 +1001,22 @@ function animate3D() {
     const time = clock.getElapsedTime() * 0.5;
 
     // Smooth Parallax Easing
-    targetX = mouseX * 0.8;
-    targetY = mouseY * 0.8;
-    camera.position.x += (targetX - camera.position.x) * 0.05;
-    camera.position.y += (40 + targetY - camera.position.y) * 0.05;
+    targetX += (mouseX * 0.8 - targetX) * 0.05;
+    targetY += (mouseY * 0.8 - targetY) * 0.05;
+    
+    camera.position.x = targetX;
+    camera.position.y = 40 + targetY;
     camera.lookAt(scene.position);
 
-    // Dynamic Wave Math
+    // Dynamic Wave Math (Tilt also affects wave distortion slightly)
     const posArr = particles.geometry.attributes.position.array;
+    let waveDistortion = (Math.abs(targetX) + Math.abs(targetY)) * 0.02;
+
     for (let i = 0; i < posArr.length; i += 3) {
         const x = posArr[i];
         const y = posArr[i + 1];
-        // Calculate organic noise via layered sine/cosine
-        posArr[i + 2] = Math.sin(x * 0.05 + time) * 6 + Math.cos(y * 0.05 + time * 0.8) * 6;
+        // The wave shifts and intensifies slightly as you tilt the phone
+        posArr[i + 2] = Math.sin(x * 0.05 + time) * (6 + waveDistortion) + Math.cos(y * 0.05 + time * 0.8) * 6;
     }
     particles.geometry.attributes.position.needsUpdate = true;
 
