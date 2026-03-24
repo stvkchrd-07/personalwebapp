@@ -37,7 +37,7 @@
 html,body{height:100%;background:var(--bg);overflow:hidden;}
 body{font-family:var(--body);color:var(--text); transition: background 0.3s ease;}
 
-/* ── 3D CANVAS & VIGNETTE ── */
+/* ── 3D CANVAS & AMBIENT LAYERS ── */
 #bg-canvas {
   position: fixed;
   top: 0;
@@ -50,10 +50,21 @@ body{font-family:var(--body);color:var(--text); transition: background 0.3s ease
 .vignette {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center, transparent 20%, var(--bg) 110%);
+  background: radial-gradient(circle at center, transparent 10%, var(--bg) 100%);
   z-index: 1;
   pointer-events: none;
   transition: background 0.3s ease;
+}
+.bg-dimmer {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0.82;
+  z-index: 2;
+  pointer-events: none;
+  transition: background 0.3s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 /* ── APP SHELL ── */
@@ -61,7 +72,7 @@ body{font-family:var(--body);color:var(--text); transition: background 0.3s ease
   position:fixed;inset:0;
   max-width:430px;margin:0 auto;
   display:flex;flex-direction:column;
-  background:transparent; /* Made transparent for 3D bg */
+  background:transparent;
   overflow:hidden;
   z-index: 5;
 }
@@ -491,6 +502,7 @@ body{font-family:var(--body);color:var(--text); transition: background 0.3s ease
 
 <canvas id="bg-canvas"></canvas>
 <div class="vignette"></div>
+<div class="bg-dimmer"></div>
 
 <div class="shell">
   <div class="hdr">
@@ -846,7 +858,7 @@ function applyLight(){
   document.documentElement.style.setProperty('--dim','rgba(14,14,16,0.25)');
   document.documentElement.style.setProperty('--silver','rgba(0,0,0,0.6)');
   document.body.style.background='#F0EDE6';
-  if(window.update3DTheme) update3DTheme(0xF0EDE6); // Sync 3D Canvas
+  if(window.update3DTheme) update3DTheme(0xF0EDE6);
 }
 
 function applyDark(){
@@ -863,7 +875,7 @@ function applyDark(){
   document.documentElement.style.setProperty('--dim','rgba(242,240,235,0.2)');
   document.documentElement.style.setProperty('--silver','rgba(255,255,255,0.55)');
   document.body.style.background='#080808';
-  if(window.update3DTheme) update3DTheme(0x080808); // Sync 3D Canvas
+  if(window.update3DTheme) update3DTheme(0x080808);
 }
 
 function toggleTheme(){
@@ -912,9 +924,9 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 // Create Particle Plane
 const planeGeom = new THREE.PlaneGeometry(350, 350, 75, 75);
 const material = new THREE.PointsMaterial({
-    size: 1.8,
+    size: 1.2,          // THINNER PARTICLES FOR READABILITY
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.35,      // REDUCED OPACITY
     blending: THREE.AdditiveBlending,
     vertexColors: true
 });
@@ -976,13 +988,9 @@ window.addEventListener('click', initGyro, { once: true, capture: true });
 
 function handleOrientation(e) {
     if (e.gamma !== null && e.beta !== null) {
-        // Gamma: Left/Right tilt (-90 to 90)
-        // Beta: Front/Back tilt (-180 to 180)
-        
         let gamma = Math.max(-60, Math.min(60, e.gamma));
         let beta = Math.max(0, Math.min(90, e.beta)); 
 
-        // Assume natural holding angle is around 45 degrees
         mouseX = gamma * 0.8; 
         mouseY = (beta - 45) * 0.8; 
     }
