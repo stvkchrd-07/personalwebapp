@@ -954,38 +954,37 @@ let gyroInitialized = false;
 function initGyro() {
     if (gyroInitialized) return;
     
-    // Check if iOS 13+ device orientation permission is required
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
             .then(permissionState => {
                 if (permissionState === 'granted') {
                     window.addEventListener('deviceorientation', handleOrientation);
+                    gyroInitialized = true;
                 }
             })
-            .catch(console.error);
+            .catch(console.error); // Will error silently if not on HTTPS
     } else {
-        // Non-iOS 13+ devices
+        // Non-iOS 13+ devices or Android
         window.addEventListener('deviceorientation', handleOrientation);
+        gyroInitialized = true;
     }
-    gyroInitialized = true;
 }
 
-// Request permission on the user's first tap anywhere on the screen
-document.body.addEventListener('click', initGyro, { once: true });
-document.body.addEventListener('touchstart', initGyro, { once: true });
+// Aggressively capture the first user interaction to trigger the iOS prompt
+window.addEventListener('touchstart', initGyro, { once: true, capture: true });
+window.addEventListener('click', initGyro, { once: true, capture: true });
 
 function handleOrientation(e) {
     if (e.gamma !== null && e.beta !== null) {
         // Gamma: Left/Right tilt (-90 to 90)
         // Beta: Front/Back tilt (-180 to 180)
         
-        // Constrain extreme values so the camera doesn't flip
-        let gamma = Math.max(-45, Math.min(45, e.gamma));
-        let beta = Math.max(-45, Math.min(45, e.beta));
+        let gamma = Math.max(-60, Math.min(60, e.gamma));
+        let beta = Math.max(0, Math.min(90, e.beta)); 
 
-        // Multiply for sensitivity. Offset beta by 30 degrees assuming the user holds the phone slightly tilted up
-        mouseX = gamma * 1.5; 
-        mouseY = (beta - 30) * 1.5; 
+        // Assume natural holding angle is around 45 degrees
+        mouseX = gamma * 0.8; 
+        mouseY = (beta - 45) * 0.8; 
     }
 }
 
@@ -1008,15 +1007,12 @@ function animate3D() {
     camera.position.y = 40 + targetY;
     camera.lookAt(scene.position);
 
-    // Dynamic Wave Math (Tilt also affects wave distortion slightly)
+    // Dynamic Wave Math
     const posArr = particles.geometry.attributes.position.array;
-    let waveDistortion = (Math.abs(targetX) + Math.abs(targetY)) * 0.02;
-
     for (let i = 0; i < posArr.length; i += 3) {
         const x = posArr[i];
         const y = posArr[i + 1];
-        // The wave shifts and intensifies slightly as you tilt the phone
-        posArr[i + 2] = Math.sin(x * 0.05 + time) * (6 + waveDistortion) + Math.cos(y * 0.05 + time * 0.8) * 6;
+        posArr[i + 2] = Math.sin(x * 0.05 + time) * 6 + Math.cos(y * 0.05 + time * 0.8) * 6;
     }
     particles.geometry.attributes.position.needsUpdate = true;
 
